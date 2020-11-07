@@ -2,13 +2,13 @@ import os
 from glob import glob
 import numpy as np
 import random
-import string
 from time import time
 
-import scipy
 import cv2
 
 import tensorflow as tf
+
+from utils import ALPHABET
 
 from trdg.generators import (
     GeneratorFromWikipedia,
@@ -215,13 +215,9 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
         self.height = 32
         self.width = None
 
-        self.alphabet = "".join(['°', 'Ø', '²']) + "".join([chr(i) for i in range(3, 128)]) + "".join(
-            ["é", "è", "à", "û", "ç", "î", "ï"]
-        )
+        self.alphabet = ALPHABET
         # self.alphabet = string.printable
-        print(self.alphabet)
         self.alphabet_size = len(self.alphabet)
-        print(self.alphabet_size)
 
     def text_to_labels(self, text):
         """Translation of characters to unique integer values"""

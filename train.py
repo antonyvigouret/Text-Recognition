@@ -1,42 +1,15 @@
-import os
-import string
-import numpy as np
-import cv2
 import itertools
+import os
+
+import cv2
 import editdistance
+import numpy as np
 import tensorflow as tf
 
 from image_generator import FakeImageGenerator
-from models import get_CRNN, get_CResRNN
-
-from image_generator import FakeImageGenerator
+from models import get_CResRNN, get_CRNN, CRNN_model
 from train_arg_parser import get_args
-from utils import decode_batch, labels_to_text
-
-alphabet = "".join(['°', 'Ø', '²']) + "".join([chr(i) for i in range(3, 128)]) + "".join(
-            ["é", "è", "à", "û", "ç", "î", "ï"]
-)
-
-
-def text_to_labels(text):
-    """ Translation of characters to unique integer values
-    """
-    ret = []
-    for char in text:
-        ret.append(alphabet.find(char))
-    return ret
-
-
-def labels_to_text(labels):
-    """ Reverse translation of numerical classes back to characters
-    """
-    ret = []
-    for c in labels:
-        if c == len(alphabet):  # CTC Blank
-            ret.append("")
-        else:
-            ret.append(alphabet[c])
-    return "".join(ret)
+from utils import ALPHABET, decode_batch, labels_to_text, text_to_labels
 
 
 def decode_batch(test_func, word_batch):
@@ -45,7 +18,7 @@ def decode_batch(test_func, word_batch):
     for j in range(out.shape[0]):
         out_best = list(np.argmax(out[j, 2:], 1))
         out_best = [k for k, g in itertools.groupby(out_best)]
-        outstr = labels_to_text(out_best)
+        outstr = labels_to_text(out_best, ALPHABET)
         ret.append(outstr)
     return ret
 
@@ -70,7 +43,7 @@ class VizCallback(tf.keras.callbacks.Callback):
             )
             for j in range(num_proc):
                 pred = decoded_res[j].strip()
-                truth = labels_to_text(word_batch["the_labels"][j])
+                truth = labels_to_text(word_batch["the_labels"][j], ALPHABET)
                 edit_dist = editdistance.eval(pred, truth)
                 mean_ed += float(edit_dist)
                 mean_norm_ed += float(edit_dist) / max(len(truth), len(pred))
@@ -78,8 +51,8 @@ class VizCallback(tf.keras.callbacks.Callback):
         mean_norm_ed = mean_norm_ed / num
         mean_ed = mean_ed / num
         print(
-            "\nOut of %d samples:  Mean edit distance:"
-            "%.3f Mean normalized edit distance: %0.3f" % (num, mean_ed, mean_norm_ed)
+            "\nOut of %d samples:  Mean edit distance: "
+            "%.3f / Mean normalized edit distance: %0.3f" % (num, mean_ed, mean_norm_ed)
         )
 
     def on_epoch_end(self, epoch, logs={}):
@@ -90,27 +63,30 @@ class VizCallback(tf.keras.callbacks.Callback):
 
 
 def train(args):
-    model, test_func = get_CResRNN(weights=os.path.join("OUTPUT_DIR", "exp1", "weights06.h5"))
+    #model, test_func = get_CResRNN(weights=os.path.join("OUTPUT_DIR", "exp1", "weights06.h5"))
+    #model, test_func = get_CResRNN(weights=os.path.join("OUTPUT_DIR", "weights0995.h5"))
     #model.load_weights(os.path.join("OUTPUT_DIR", "exp1", "weights15.h5"))
+    #model.load_weights(os.path.join("OUTPUT_DIR", "weights0995.h5"))
+    model, test_func = CRNN_model(weights=os.path.join("OUTPUT_DIR", "weights0995.h5"))
     train_generator = FakeImageGenerator(args).next_gen()
 
     model.fit_generator(
         train_generator,
         epochs=1000,
         initial_epoch=5,
-        steps_per_epoch=100,
+        steps_per_epoch=10,
         callbacks=[VizCallback("exp1", test_func, FakeImageGenerator(args).next_gen())],
     )
 
 
 if __name__ == "__main__":
     args = get_args()
-    train(args)
+    #train(args)
     
 
-    model, test_func = get_CRNN()
-    model.load_weights(os.path.join("OUTPUT_DIR", "exp1", "weights19.h5"))
-    train_generator = FakeImageGenerator(alphabet).gen()
+    model, test_func = CRNN_model()
+    model.load_weights(os.path.join("OUTPUT_DIR", "weights0995.h5"))
+    train_generator = FakeImageGenerator(args).next_gen()
 
     while 1:
         x, y = next(train_generator)

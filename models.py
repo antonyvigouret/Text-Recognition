@@ -4,11 +4,9 @@ from tensorflow.keras.layers import (
     Conv2D,
     Bidirectional,
     LSTM,
-    Softmax,
     MaxPooling2D,
     BatchNormalization,
     Activation,
-    Reshape,
     Input,
     Lambda,
     Add,
@@ -16,6 +14,8 @@ from tensorflow.keras.layers import (
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Model
+
+from utils import ALPHABET
 
 
 def ctc_lambda_func(args):
@@ -26,7 +26,7 @@ def ctc_lambda_func(args):
     return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
 
 
-def get_CRNN():
+def get_CRNN(weights=None):
     input_data = Input(name="the_input", shape=(32, None, 3), dtype="float32")
     inner = Conv2D(32, 3, padding="same", kernel_initializer="he_normal", name="conv1")(
         input_data
@@ -95,15 +95,12 @@ def get_CRNN():
 
     # the loss calc occurs elsewhere, so use a dummy lambda func for the loss
     model.compile(loss={"ctc": lambda y_true, y_pred: y_pred}, optimizer=optimizer)
-
+    if weights:
+        model.load_weights(weights)
     # captures output of softmax so we can decode the output during visualization
     test_func = K.function([input_data], [y_pred])
 
     return model, test_func
-
-alphabet = "".join(['°', 'Ø', '²']) + "".join([chr(i) for i in range(3, 128)]) + "".join(
-            ["é", "è", "à", "û", "ç", "î", "ï"]
-)
 
 
 def CRNN_model(weights=None):
@@ -146,7 +143,7 @@ def CRNN_model(weights=None):
     x = Bidirectional(LSTM(256, return_sequences=True), name="bidirectional_2")(x)
     x = LSTM(512, return_sequences=True)(x)
 
-    x = Dense(len(alphabet) + 1)(x)
+    x = Dense(len(ALPHABET) + 1)(x)
     y_pred = Activation("softmax", name="softmax")(x)
 
     Model(inputs=inputs, outputs=y_pred).summary()
@@ -272,7 +269,7 @@ def get_CResRNN(weights=None):
     x = Bidirectional(LSTM(256, return_sequences=True), name="bidirectional_2")(x)
     x = LSTM(512, return_sequences=True)(x)
 
-    x = Dense(len(alphabet) + 1)(x)
+    x = Dense(len(ALPHABET) + 1)(x)
     y_pred = Activation("softmax", name="softmax")(x)
 
     Model(inputs=inputs, outputs=y_pred).summary()
