@@ -7,9 +7,15 @@ import editdistance
 import tensorflow as tf
 
 from image_generator import FakeImageGenerator
-from models import get_CRNN
+from models import get_CRNN, get_CResRNN
 
-alphabet = string.printable + "àâéèîï"
+from image_generator import FakeImageGenerator
+from train_arg_parser import get_args
+from utils import decode_batch, labels_to_text
+
+alphabet = "".join(['°', 'Ø', '²']) + "".join([chr(i) for i in range(3, 128)]) + "".join(
+            ["é", "è", "à", "û", "ç", "î", "ï"]
+)
 
 
 def text_to_labels(text):
@@ -83,32 +89,34 @@ class VizCallback(tf.keras.callbacks.Callback):
         self.show_edit_distance(256)
 
 
-def train():
-    start_epoch = 0
-    num_epochs = 500
-
-    model, test_func = get_CRNN()
-
-    train_generator = FakeImageGenerator(alphabet).gen()
+def train(args):
+    model, test_func = get_CResRNN(weights=os.path.join("OUTPUT_DIR", "exp1", "weights06.h5"))
+    #model.load_weights(os.path.join("OUTPUT_DIR", "exp1", "weights15.h5"))
+    train_generator = FakeImageGenerator(args).next_gen()
 
     model.fit_generator(
         train_generator,
         epochs=1000,
-        initial_epoch=0,
+        initial_epoch=5,
         steps_per_epoch=100,
-        callbacks=[VizCallback("exp1", test_func, train_generator)],
+        callbacks=[VizCallback("exp1", test_func, FakeImageGenerator(args).next_gen())],
     )
 
 
 if __name__ == "__main__":
-    train()
-    model, test_func = tf.keras.models.load_model(
-        os.path.join("OUTPUT_DIR", "weights07.h5")
-    )
+    args = get_args()
+    train(args)
+    
+
+    model, test_func = get_CRNN()
+    model.load_weights(os.path.join("OUTPUT_DIR", "exp1", "weights19.h5"))
+    train_generator = FakeImageGenerator(alphabet).gen()
+
     while 1:
-        x, y = train_generator = FakeImageGenerator(alphabet).gen()
-        pred = test_func(x["the_input"][0])[0]
-        print(pred)
-        cv2.imshow("im", x["the_input"][0])
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        x, y = next(train_generator)
+        pred = decode_batch(test_func, x["the_input"])
+        for i in range(len(pred)):
+            print(pred[i])
+            cv2.imshow("im", x["the_input"][i])
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
