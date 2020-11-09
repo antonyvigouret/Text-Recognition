@@ -1,15 +1,18 @@
 import itertools
 import os
+from time import time
 
 import cv2
 import editdistance
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.utils import Progbar
 
 from image_generator import FakeImageGenerator
 from models import get_CResRNN, get_CRNN, CRNN_model
 from train_arg_parser import get_args
 from utils import ALPHABET, decode_batch, labels_to_text, text_to_labels
+from models import CRNN, ctc_lambda_func
 
 
 def decode_batch(test_func, word_batch):
@@ -63,27 +66,96 @@ class VizCallback(tf.keras.callbacks.Callback):
 
 
 def train(args):
+    @tf.function
+    def train_step(x, y):
+        with tf.GradientTape() as tape:
+            y_pred = model(x["the_input"])
+            # loss = tf.reduce_mean(ctc_lambda_func((y_pred, x["the_labels"], x["input_length"].reshape((-1,1)), x["label_length"].reshape((-1,1)))))
+            loss = tf.reduce_mean(ctc_lambda_func((y_pred, x["the_labels"], tf.reshape(x["input_length"], [-1, 1]), tf.reshape(x["label_length"], [-1, 1]))))
+        
+        # Compute gradients
+        trainable_vars = model.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+
+        # Update weights
+        model.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        return loss
+
+
+    epochs = 1000
+    iter_per_epoch = 100
     #model, test_func = get_CResRNN(weights=os.path.join("OUTPUT_DIR", "exp1", "weights06.h5"))
     #model, test_func = get_CResRNN(weights=os.path.join("OUTPUT_DIR", "weights0995.h5"))
     #model.load_weights(os.path.join("OUTPUT_DIR", "exp1", "weights15.h5"))
     #model.load_weights(os.path.join("OUTPUT_DIR", "weights0995.h5"))
-    model, test_func = CRNN_model(weights=os.path.join("OUTPUT_DIR", "weights0995.h5"))
-    train_generator = FakeImageGenerator(args).next_gen()
+    model2, test_func = CRNN_model()
 
-    model.fit_generator(
+    train_generator = FakeImageGenerator(args).next_gen()
+    
+
+    model = CRNN(ALPHABET)
+    model.build()
+    model.summary()
+
+    # model = tf.keras.load_model('checkpoints/checkpoint')
+    
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=5))
+
+    loss_train = []
+
+    for epoch in range(1, epochs):
+        print(f"Start of epoch {epoch}")
+
+        pb = Progbar(iter_per_epoch, stateful_metrics="loss")
+
+        for iter in range(iter_per_epoch):
+            x, y = next(train_generator)
+            with tf.GradientTape() as tape:
+                y_pred = model(x["the_input"])
+                # loss = tf.reduce_mean(ctc_lambda_func((y_pred, x["the_labels"], x["input_length"].reshape((-1,1)), x["label_length"].reshape((-1,1)))))
+                loss = tf.reduce_mean(ctc_lambda_func((y_pred, x["the_labels"], tf.reshape(x["input_length"], [-1, 1]), tf.reshape(x["label_length"], [-1, 1]))))
+            
+            # Compute gradients
+            trainable_vars = model.trainable_variables
+            gradients = tape.gradient(loss, trainable_vars)
+
+            # Update weights
+            model.optimizer.apply_gradients(zip(gradients, trainable_vars))
+
+            values = [('loss', loss)]
+            pb.add(1, values=values)
+
+        if epoch % 5 == 0:
+            model.save("checkpoints/base_crnn.h5")
+
+
+    
+    
+
+    # print("test2")
+    # x, y = next(train_generator)
+    # model.fit(x, y)
+    # print("test1")
+    
+    x, y = next(train_generator)
+    print(model(x["the_input"]))
+
+    """
+    model.fit(
         train_generator,
         epochs=1000,
-        initial_epoch=5,
-        steps_per_epoch=10,
+        initial_epoch=0,
+        steps_per_epoch=100,
         callbacks=[VizCallback("exp1", test_func, FakeImageGenerator(args).next_gen())],
     )
+    """
 
 
 if __name__ == "__main__":
     args = get_args()
-    #train(args)
+    train(args)
     
-
+    """
     model, test_func = CRNN_model()
     model.load_weights(os.path.join("OUTPUT_DIR", "weights0995.h5"))
     train_generator = FakeImageGenerator(args).next_gen()
@@ -96,3 +168,4 @@ if __name__ == "__main__":
             cv2.imshow("im", x["the_input"][i])
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+    """

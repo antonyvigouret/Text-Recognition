@@ -29,7 +29,7 @@ def get_args():
     
     
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=16, help="Batch size")
+    parser.add_argument('--batch_size', type=int, default=4, help="Batch size")
     parser.add_argument('--epochs', type=int, default=250, help="Number of epochs to train for")
     parser.add_argument('--start_epoch', type=int, default=0, help="The epoch to start from")
     parser.add_argument('--max_it_per_epoch', type=int, default=10000, help="Maximum number of iterations per epoch")

@@ -110,7 +110,7 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
                 length=2,
                 language="fr",
                 size=55,
-                background_type=3,
+                background_type=1,
                 skewing_angle=3,
                 use_symbols=True,  # false
                 fit=True,
@@ -144,24 +144,10 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
                 length=5,
                 language="fr",
                 size=28,
-                background_type=3,
+                background_type=1,
                 use_symbols=False,
                 fit=True,
                 text_color='#000000,#888888',
-            ),
-        ]
-        self.wiki_generators = [
-            GeneratorFromWikipedia(
-                count=-1, language="fr", background_type=3, fit=True
-            ),
-            GeneratorFromWikipedia(
-                count=-1, language="fr", background_type=1, fit=True
-            ),
-            GeneratorFromWikipedia(
-                count=-1, language="fr", background_type=0, fit=True
-            ),
-            GeneratorFromWikipedia(
-                count=-1, language="fr", background_type=3, margins=(5, 2, 7, 1)
             ),
         ]
         self.dict_generators = [
@@ -170,7 +156,7 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
                 allow_variable=True,
                 language="fr",
                 size=32,
-                background_type=3,
+                background_type=1,
                 fit=True,
                 text_color='#000000,#888888',
             ),
@@ -179,7 +165,7 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
                 allow_variable=True,
                 language="fr",
                 size=32,
-                background_type=3,
+                background_type=1,
                 margins=(7, 4, 6, 4),
                 text_color='#000000,#888888',
             ),
@@ -199,7 +185,7 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
                 allow_variable=True,
                 language="fr",
                 size=32,
-                background_type=1,
+                background_type=0,
                 fit=True,
             ),
             GeneratorFromRandom(
@@ -207,7 +193,7 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
                 length=5,
                 language="fr",
                 size=28,
-                background_type=1,
+                background_type=0,
                 use_symbols=False,
                 fit=True,
             ),
@@ -250,7 +236,7 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
     def pad_to_largest_image(self, images):
         sizes = [im.shape[1] for im in images]
         max_size = max(sizes)
-        input_length = np.array([max_size // 4 - 2 for im in images])
+        input_length = np.array([(max_size // 4 - 3) for im in images])
         images = [
             np.pad(im, ((0, 0), (0, max_size - im.shape[1]), (0, 0)), mode="edge")
             for im in images
@@ -269,9 +255,9 @@ class FakeImageGenerator(tf.keras.utils.Sequence):
     def prepare_batch(self):
         # chose a generator to generate the whole batch
         r = random.random()
-        if r < 1:
+        if r < 0:
             self.current_generator = random.choice(self.classic_gen)
-        elif r < 0.75:
+        elif r < 0:
             self.current_generator = random.choice(self.fake_generators)
         else:
             self.current_generator = random.choice(self.dict_generators)
